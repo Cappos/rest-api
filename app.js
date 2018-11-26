@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 
 
 const express = require('express');
@@ -6,15 +7,20 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const graphqlHttp = require('express-graphql');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
 
 
 const graphqlSchema = require('./graphql/schema');
 const graphqlResolver = require('./graphql/resolvers');
 const auth = require('./middleware/auth');
 const {clearImage} = require('./util/file');
-const MONGO_URI = 'mongodb://127.0.0.1:27017/rest-api';
+
+const MONGO_URI = `mongodb://127.0.0.1:27017/${process.env.MONGO_DATABASE}`;
 
 const app = express();
+
 
 const fileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -33,6 +39,15 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
+// Create log file
+const accessLogStream = fs.createWriteStream(path.join(__dirname, 'access.log'), {
+        flag: 'a'
+    }
+);
+
+app.use(helmet());
+app.use(compression());
+app.use(morgan('combined',  {stream: accessLogStream}));
 
 app.use(bodyParser.json());
 app.use(multer({storage: fileStorage, fileFilter: fileFilter}).single('image'));
@@ -98,7 +113,7 @@ app.use((error, req, res, next) => {
 });
 
 mongoose.connect(MONGO_URI).then(() => {
-    app.listen(8000);
+    app.listen(process.env.PORT || 8000);
     console.log('Connected to MongoDB');
 }).catch(err => {
     console.log(err);
